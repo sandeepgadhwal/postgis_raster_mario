@@ -1,0 +1,42 @@
+{
+    "parameters": {
+        "latU": 16.903489,
+        "lonU": 16.821519,
+        "latD": 41.152986,
+        "lonD": 41.05911, 
+		"tipoDati": [
+            "superficieAreeServizio"
+        ]
+	}
+    "tipoDati": {
+		"superficieAreeServizio": {
+			"layers": [
+				{
+					"layer_id": 1,
+					"class_code": "7203",
+					"class_name": "residential",
+					"table_name": "osm_landuse",					
+					"total_features": 24194,
+					"layer_area": 165.12
+				},
+				{
+					"layer_id": 2,
+					"class_code": "7204",
+					"class_name": "industrial",
+					"table_name": "osm_landuse",					
+					"class_code": "7204",
+					"total_features": 24194,
+					"layer_area": 165.12
+				}				
+			],
+			"total_area": 165.12
+		}
+
+	},
+	"geotiff_file": "filename.tiff"	
+    "messages": [],
+    "time_taken_query": 33.443878173828125,
+    "time_taken_total": 35.98608040809631,
+    "time_units": "Seconds"		
+	}	
+}

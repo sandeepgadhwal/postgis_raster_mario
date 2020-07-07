@@ -1,0 +1,56 @@
+{
+    "parameters": {
+        "latU": 16.903489,
+        "lonU": 16.821519,
+        "latD": 41.152986,
+        "lonD": 41.05911, 
+		"tipoDati": [
+            "struttureVarie"
+        ]
+	}
+    "tipoDati": {
+		"struttureVarie": {
+			"layers": [
+				{
+					"layer_id": 1,
+					"class_code": "2082",
+					"class_name": "school",
+					"table_name": "osm_pois",
+					"total_features": 2,
+					"pois": [
+						{
+							"lat": "16.903489",
+							"lon": "16.821519",
+							"name": "Business School"
+						},
+						{
+							"lat": "16.903489",
+							"lon": "16.821519",
+							"name": "Economics School"
+						}						
+					]
+				},
+				{
+					"layer_id": 2,
+					"class_code": "2110",
+					"class_name": "hospital",
+					"table_name": "osm_pois",
+					"total_features": 1,
+					"pois": [
+						{
+							"lat": "16.903489",
+							"lon": "16.821519",
+							"name": "Santa Monica Hospital"
+						}						
+					]
+				}
+			]
+		}
+	},
+	"geotiff_file": "filename.tiff"	
+    "messages": [],
+    "time_taken_query": 33.443878173828125,
+    "time_taken_total": 35.98608040809631,
+    "time_units": "Seconds"		
+	}	
+}

@@ -1,0 +1,33 @@
+{
+    "parameters": {
+        "latU": 16.903489,
+        "lonU": 16.821519,
+        "latD": 41.152986,
+        "lonD": 41.05911, 
+		"tipoDati": [
+            "superficieEdificato"
+        ]
+	}
+    "tipoDati": {
+		"superficieEdificato": {
+			"layers": [
+				{
+					"layer_id": 1,
+					"class_code": "1500",
+					"class_name": "building",
+					"table_name": "osm_buildings",					
+					"total_features": 24194,
+					"layer_area": 165.12
+				}
+			],	
+			"total_area": 165.12
+		}
+
+	},
+	"geotiff_file": "filename.tiff"	
+    "messages": [],
+    "time_taken_query": 33.443878173828125,
+    "time_taken_total": 35.98608040809631,
+    "time_units": "Seconds"		
+	}	
+}
