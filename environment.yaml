@@ -1,0 +1,37 @@
+name: postgisrasterenv
+channels:
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - brotlipy=0.7.0=py37h7b6447c_1000
+  - ca-certificates=2020.6.24=0
+  - certifi=2020.6.20=py37_0
+  - cffi=1.14.0=py37he30daa8_1
+  - chardet=3.0.4=py37_1003
+  - cryptography=2.9.2=py37h1ba5d50_0
+  - idna=2.10=py_0
+  - ld_impl_linux-64=2.33.1=h53a641e_7
+  - libedit=3.1.20191231=h7b6447c_0
+  - libffi=3.3=he6710b0_2
+  - libgcc-ng=9.1.0=hdf63c60_0
+  - libstdcxx-ng=9.1.0=hdf63c60_0
+  - ncurses=6.2=he6710b0_1
+  - openssl=1.1.1g=h7b6447c_0
+  - pip=20.1.1=py37_1
+  - pycparser=2.20=py_0
+  - pyopenssl=19.1.0=py37_0
+  - pysocks=1.7.1=py37_0
+  - python=3.7.7=hcff3b4d_5
+  - readline=8.0=h7b6447c_0
+  - requests=2.24.0=py_0
+  - setuptools=47.3.1=py37_0
+  - six=1.15.0=py_0
+  - sqlite=3.32.3=h62c20be_0
+  - tk=8.6.10=hbc83047_0
+  - tqdm=4.47.0=py_0
+  - urllib3=1.25.9=py_0
+  - wheel=0.34.2=py37_0
+  - xz=5.2.5=h7b6447c_0
+  - zlib=1.2.11=h7b6447c_3
+prefix: /home/sandy/anaconda3/envs/postgisrasterenv
+
