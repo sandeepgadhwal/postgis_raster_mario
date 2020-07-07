@@ -1,5 +1,5 @@
 import requests
-import tqdm
+from tqdm import tqdm
 from urllib import request
 import shutil
 
