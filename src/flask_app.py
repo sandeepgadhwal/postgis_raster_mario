@@ -13,14 +13,22 @@ if working_directory is None:
 
 @app.route('/')
 def index():
+    test_url = f"{apihost}{base_path}?latU=16.903489&lonU=16.821519&latD=41.152986&lonD=41.05911&cellSize=100&tipoDati=superficieEdificato"
     message = f"""
-    \n\n
-
-    template: {apihost}{base_path}?param=value
-
-    \n\ntest: <a href>{apihost}{base_path}?xMin=16.821519&yMin=41.059118&xMax=16.903489&yMax=41.152986&types=roads&classes=motorway</a>
-
-    \n\n
+    <html>
+        <body>
+            <br/>
+            <code>
+                template: {apihost}{base_path}?param=value
+            </code>
+            <br/>
+            <br/>
+            <code>
+                test: <a href="{test_url}" _target="">{test_url}</a>
+            </code>
+            <br/>
+        </body>
+    </html>
     """
     return message
 
@@ -28,13 +36,12 @@ def index():
 def api_v1():
     print(request.args)
     kwargs_mapping = {
-        "x_min": "xMin",
-        "y_min": "yMin",
-        "x_max": "xMax",
-        "y_max": "yMax", 
-        "types": "types",
-        "classes": "classes",
-        "cell_size": "cell_size"
+        "latU": "latU",
+        "lonU": "lonU",
+        "latD": "latD",
+        "lonD": "lonD",
+        "tipoDati": "tipoDati",
+        "cellSize": "cellSize"
     }
     kwargs = {}
     for argname in kwargs_mapping:
@@ -48,7 +55,7 @@ def api_v1():
             kwargs[_arg] = [str(x.strip()) for x in _value.strip().split(',')]
     
     # Handle Floats
-    float_args = ['x_min', 'y_min', 'x_max', 'y_max', 'cell_size']
+    float_args = ['latU', 'lonU', 'latD', 'lonD', 'cellSize']
     for _arg in float_args:
         _value = kwargs.get(_arg, None)
         if _value is not None:
@@ -60,12 +67,12 @@ def api_v1():
             del kwargs[key]
 
     print(kwargs)
-    return read_data(**kwargs)
+    return readDataByArea(**kwargs)
 
-@app.route(image_result_path+'/<filename>')
-def api_v1_results(filename):
-    print(filename)
-    filepath = os.path.join(working_directory, filename)
+@app.route(base_path+'<jobid>/<filename>')
+def api_v1_results(jobid, filename):
+    print(jobid, filename)
+    filepath = os.path.join(working_directory, jobid, filename)
     print(filepath, os.path.exists(filepath))
     return send_file(filepath, as_attachment=True)
 

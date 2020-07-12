@@ -1,4 +1,6 @@
+import os
 import pyproj
+from .config import jobs_directory
 
 ## Geometry Functions start ##
 def project_xy(x: float, y: float, source_srs: int, target_srs: int):
@@ -38,3 +40,32 @@ def make_query(datatype_id):
             )
         FROM out_raster
     """
+
+def register_job():
+    job_id = create_job_id()
+    while True:
+        job_path = os.path.join(jobs_directory, str(job_id))
+        if os.path.exists(job_path):
+            job_id = create_job_id()
+            continue
+        else:
+            os.mkdir(job_path)
+        break
+    return job_id, job_path
+
+def create_job_id():
+    if not os.path.exists(jobs_directory):
+        os.mkdir(jobs_directory)
+    job_store_path = os.path.join(jobs_directory, 'job_index.txt')
+    #job_store_path = 'a.txt'
+    prev_job_id = 0
+    if os.path.exists(job_store_path):
+        with open(job_store_path, 'rb') as f:
+            f.seek(-2, os.SEEK_END)
+            prev_job_id = int(f.read().decode()[:-1])
+    cur_job_id = prev_job_id+1
+    with open(job_store_path, 'a+') as f:
+        f.write(f"{cur_job_id}\n")
+    return cur_job_id
+
+
