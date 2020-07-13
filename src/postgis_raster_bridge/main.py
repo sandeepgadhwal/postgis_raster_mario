@@ -3,8 +3,8 @@ import json
 import math
 import time
 from .database import query_db
-from .database_apis import get_datatype_id
-from .subroutines import make_query, register_job, project_xy
+from .database_apis import get_datatype_id, get_srid
+from .subroutines import register_job, project_xy
 from .config import jobs_directory, base_path
 
 def readDataByArea(
@@ -57,7 +57,7 @@ def readDataByArea(
     with open(job_lock, 'w') as f:
         pass
 
-    # Prepare tempelate raster parameters
+    # Prepare template raster parameters
     x_min = latU
     y_min = lonD
     x_max = latD
@@ -70,6 +70,41 @@ def readDataByArea(
     # Dimension of Raster
     n_rows = math.ceil((x_max - x_min) / cell_size_x_dd)
     n_cols = math.ceil((y_max - y_min) / cell_size_y_dd)
+
+    # Rasterization template query
+    raster_template_sql = f""" 
+        SELECT ST_SetBandNoDataValue(ST_MakeEmptyRaster({n_cols}, {n_rows}, {x_min}, {y_max}, {cell_size_x_dd}, {cell_size_y_dd}, {0}, {0}, 4326), {nodata})
+    """
+
+    # Based on input selection type create selection query
+    if circle:
+        x_center = (x_max + x_min) * .5
+        y_center = (y_max + y_min) * .5
+        radius = (abs(x_max - x_min) + abs(y_max - y_min)) * .25
+
+        selection_geom_query = f"""
+            SELECT ST_Buffer(ST_SetSRID(ST_Point({x_center}, {y_center}), 4326), {radius}) AS geom
+        """
+    else:  # Polygon
+        selection_geom_query = f"""
+            SELECT ST_GeomFromText('POLYGON(({x_min} {y_min}, {x_min} {y_max}, {x_max} {y_max}, {x_max} {y_min}, {x_min} {y_min}))', 4326) AS geom
+        """
+
+    # Fishnet from raster band 1
+    fishnet_query = f"""
+        q_poly AS (
+            SELECT  
+                (pp).geom AS geom
+            FROM 
+                (
+                    SELECT ST_PixelAsPolygons(
+                        q_ras.ras, 
+                        1
+                    ) pp
+                    FROM q_ras
+                ) a
+        )
+    """
 
     # Make Json Info
     json_info = {
