@@ -18,29 +18,6 @@ def center_hw_to_polygon(x, y, height, width):
 
 ## Geometry Functions end ##
 
-def make_query(datatype_id):
-    raise NotImplemented
-
-
-    feature_to_raster_sql = f"""
-        WITH {out_raster_sql},
-        out_raster AS (
-            SELECT
-                ST_Transform(
-                    r.ras,
-                    {out_srid}
-                ) AS ras
-            FROM
-                raster_w_values r
-        )
-        SELECT 
-            ST_AsTIFF(
-                out_raster.ras,
-                'LZW'
-            )
-        FROM out_raster
-    """
-
 def register_job():
     job_id = create_job_id()
     while True:
@@ -61,8 +38,15 @@ def create_job_id():
     prev_job_id = 0
     if os.path.exists(job_store_path):
         with open(job_store_path, 'rb') as f:
-            f.seek(-2, os.SEEK_END)
-            prev_job_id = int(f.read().decode()[:-1])
+            for line in f:
+                pass
+            line = line.decode()
+            prev_job_id = int(line)
+            # f.seek(-2, os.SEEK_END)
+            # line = f.read().decode()
+            # print("line", line)
+            # prev_job_id = int(line[:-1])
+            # print(prev_job_id, )
     cur_job_id = prev_job_id+1
     with open(job_store_path, 'a+') as f:
         f.write(f"{cur_job_id}\n")

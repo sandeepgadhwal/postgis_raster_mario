@@ -1,5 +1,6 @@
 
 import psycopg2
+from psycopg2.extras import RealDictCursor
 from .db_config import host, port, database, user, password
 
 ## Database Functions start ##
@@ -12,10 +13,10 @@ def get_engine():
     from sqlalchemy import create_engine
     return create_engine(get_con_string())
 
-def query_db(sql, connection=None):
+def query_db(sql, connection=None, cursor_factory=RealDictCursor):
     if connection is None:
         connection = psycopg2.connect(get_con_string())
-    cur = connection.cursor()
+    cur = connection.cursor(cursor_factory=cursor_factory)
     cur.execute(sql)
     data = cur.fetchall()
     cur.close()

@@ -1,6 +1,39 @@
 # postgis_raster_mario
 postgis_raster_mario
 
+## Prerequisties
+
+
+#### Extensions
+following extensions should be enabled in your postgres database
+- postgis
+- postgis_raster
+
+
+#### Env variables
+enable GDAL by executing these queries in your postgres database
+```sql
+SET postgis.gdal_enabled_drivers = 'ENABLE_ALL';
+SELECT pg_reload_conf();
+```
+
+#### Env variables more
+edit the config file by the following commands  
+```bash
+sudo nano /etc/postgresql/10/main/environment
+```
+
+Now add these lines
+```yaml
+POSTGIS_ENABLE_OUTDB_RASTERS=1
+POSTGIS_GDAL_ENABLED_DRIVERS=ENABLE_ALL
+```
+
+#### Restart Postgres
+Now restart Postgresql by the following command  
+```bash
+sudo service postgresql restart
+```
 
 ## Configure Environment
 Install conda from [here](https://www.anaconda.com/products/individual)

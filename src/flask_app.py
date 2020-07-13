@@ -1,11 +1,11 @@
 import os
 
-from flask import Flask, url_for, request, send_file
+from flask import Flask, url_for, request, send_file, jsonify
 from markupsafe import escape
 
 app = Flask(__name__)
 
-from postgis_raster_bridge.config import apihost, base_path, image_result_path, working_directory
+from postgis_raster_bridge.config import apihost, base_path, working_directory
 from postgis_raster_bridge import readDataByArea
 
 if working_directory is None:
@@ -13,7 +13,7 @@ if working_directory is None:
 
 @app.route('/')
 def index():
-    test_url = f"{apihost}{base_path}?latU=16.903489&lonU=16.821519&latD=41.152986&lonD=41.05911&cellSize=100&tipoDati=superficieEdificato"
+    test_url = f"{apihost}{base_path}?latU=16.903489&lonU=41.05911&latD=16.821519&lonD=41.152986&cellSize=100&tipoDati=superficieEdificato"
     message = f"""
     <html>
         <body>
@@ -67,7 +67,7 @@ def api_v1():
             del kwargs[key]
 
     print(kwargs)
-    return readDataByArea(**kwargs)
+    return jsonify(readDataByArea(**kwargs))
 
 @app.route(base_path+'<jobid>/<filename>')
 def api_v1_results(jobid, filename):
