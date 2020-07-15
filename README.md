@@ -1,5 +1,4 @@
-# postgis_raster_mario
-postgis_raster_mario
+# Postgis Raster Bridge
 
 ## Prerequisties
 
@@ -22,7 +21,6 @@ edit the config file by the following commands
 ```bash
 sudo nano /etc/postgresql/10/main/environment
 ```
-
 Now add these lines
 ```yaml
 POSTGIS_ENABLE_OUTDB_RASTERS=1
@@ -50,14 +48,20 @@ conda activate postgisrasterenv
 ```
 
 ## Run Flask App
-use the following command
+use the following command  
+Linux
 ```shell script
 cd src
 sudo chmod +x start_flask_app.sh
 start_flask_app.sh
 ```
-
-## Change Flask App configuration
+Windows
+```shell script
+cd src
+start_flask_app.bat
+```
+##  Configuration
+### Change Flask App configuration
 If you want to change the port, hostname of flask app. 
 Edit the file 'start_flask_app.sh', It looks like this.
 ```shell script
@@ -67,7 +71,7 @@ export FLASK_RUN_PORT=5000
 flask run
 ```
 
-## Change the Main App Configuration
+### Change the Main App Configuration
 If you want to change the configuration of main app such as 
 - the location to save images
 - hostname
@@ -76,16 +80,18 @@ If you want to change the configuration of main app such as
   
 Edit the file './src/postgis_raster_bridge/config.py', It looks like this.
 ```python
+import os
+
 # Working directory to write images
-working_directory = "/home/sandy/workspace/mario ricci/2-postgis2raster-sud-v2/image_store/"
+working_directory = "/home/sandy/workspace/mario ricci/2-postgis2raster-sud-v2"
+jobs_directory = os.path.join(working_directory, "sevara_jobs")
 
 # Base path for accessing images thorugh URL
 apihost = "http://localhost:5000"
-base_path = "/sevara/v1"
-image_result_path = base_path + "/results"
+base_path = "sevara/v1/jobs/readDataByArea"
 ```
 
-## Change Main App database configuration
+### Change Main App database configuration
 If you want to change the configuration of databse such as 
 - DB server Port
 - DB server Hostname
