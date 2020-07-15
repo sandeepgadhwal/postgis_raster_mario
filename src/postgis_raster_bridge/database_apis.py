@@ -152,4 +152,35 @@ def get_pois_features_query(selection_query, feature_selection_query):
     """
     return query
 
+def get_data_point_geojson_query(selection_query, feature_selection_query, raster_band_class_code):
+    query = f"""
+        WITH 
+            {selection_query},
+            {feature_selection_query},
+            class_features AS (
+                SELECT 
+                    row_number() over () AS gid,
+                    f.*
+                FROM features f
+                WHERE 
+                    f.code = {raster_band_class_code}
+            )
+        
+        SELECT jsonb_build_object(
+            'type',     'FeatureCollection',
+            'features', jsonb_agg(feature)
+        )
+        FROM (
+            SELECT 
+                jsonb_build_object(
+                    'type',       'Feature',
+                    'id',         gid,
+                    'geometry',   ST_AsGeoJSON(geom)::jsonb,
+                    'properties', to_jsonb(row) - 'gid' - 'geom'
+                ) AS feature
+            FROM (SELECT * FROM class_features) row
+        ) features;
+    """
+    return query
+
 ## Database APIs End ##

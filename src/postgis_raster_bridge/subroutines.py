@@ -4,7 +4,13 @@ from .config import jobs_directory
 
 ## Geometry Functions start ##
 def project_xy(x: float, y: float, source_srs: int, target_srs: int):
-    x, y = pyproj.transform(pyproj.Proj(f'epsg:{source_srs}'), pyproj.Proj(f'epsg:{target_srs}'), x, y)
+    try:
+        s_srs = pyproj.Proj("EPSG:"+str(source_srs))
+        t_srs = pyproj.Proj("EPSG:"+str(target_srs))
+    except:
+        s_srs = pyproj.Proj(init="EPSG:"+str(source_srs))
+        t_srs = pyproj.Proj(init="EPSG:"+str(target_srs))
+    x, y = pyproj.transform(s_srs, t_srs, x, y)
     if type(x) == tuple:
         (x,), (y,) = x, y
     return x, y

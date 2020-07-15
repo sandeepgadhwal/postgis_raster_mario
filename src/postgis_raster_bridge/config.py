@@ -6,4 +6,4 @@ jobs_directory = os.path.join(working_directory, "sevara_jobs")
 
 # Base path for accessing images thorugh URL
 apihost = "http://localhost:5000"
-base_path = "/sevara/v1/jobs/readDataByArea"
+base_path = "sevara/v1/jobs/readDataByArea"

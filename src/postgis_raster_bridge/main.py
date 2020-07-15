@@ -3,9 +3,10 @@ import json
 import math
 import time
 from .database import query_db
-from .database_apis import get_datatype_id, get_srid, get_datatype_info_by_id, get_feature_selection_query, get_class_query, get_stat_query, get_pois_features_query
+from .database_apis import get_datatype_id, get_srid, get_datatype_info_by_id, get_feature_selection_query, \
+    get_class_query, get_stat_query, get_pois_features_query, get_data_point_geojson_query
 from .subroutines import register_job, project_xy
-from .config import jobs_directory, base_path
+from .config import jobs_directory, base_path, apihost
 
 def readDataByArea(
         latU: float,
@@ -19,14 +20,13 @@ def readDataByArea(
         nodata: int=254,
         out_srid: int=4326,
         circle:bool=False,
-        expand_bands: bool=True
+        debug: bool=False
     ):
     """
     :param latU: latitude of the point at the top left
     :param lonU: longitude of the point at the top left
     :param latD: latitude of the point at the bottom right
     :param lonD: longitude of the point at the bottom right
-    :param cellSize: Distance between center of two pixels on ground in meters (Both in x and y direction).
     :param tipoDati: 
         These are possible values:
             • attivita
@@ -34,7 +34,14 @@ def readDataByArea(
             • superficieAreeServizio
             • struttureVarie
             • tutti
-    :return:
+    :param cellSize: Distance between center of two pixels on ground in meters (Both in x and y direction).
+    :param positive: 
+    :param negative: 
+    :param nodata: 
+    :param out_srid: 
+    :param circle: 
+    :param debug: Produces Geojson in addition to the raster, the geojson's can be used to compare raster and features.
+    :return: 
     """
     # Start Timer
     start = time.time()
@@ -163,8 +170,12 @@ def readDataByArea(
     with open(preprocess_json_path, 'w') as f:
         json.dump(json_info, f)
 
+    geojson_store = os.path.join(job_path, "geojson")
+    if debug:
+        os.mkdir(geojson_store)
 
     for _tipo_dati in outputs_to_produce:
+        print("--Processing", _tipo_dati)
         # Basics
         datatype_id = get_datatype_id(_tipo_dati)
         layer_info = [dict(x) for x in get_datatype_info_by_id(datatype_id)]
@@ -179,7 +190,7 @@ def readDataByArea(
 
         #classes=[['building']]#[row['GroupName'] for row in datatype_info]
         output_raster_filepath = os.path.join(job_path, f'{_tipo_dati}.tiff')
-        output_raster_weburl = f"{base_path}/{str(job_id)}/{_tipo_dati}.tiff"
+        output_raster_weburl = f"{apihost}/{base_path}/{str(job_id)}/{_tipo_dati}.tiff"
 
         # Use the Selection query to select features from source table
         # feature_selection_query_store = []
@@ -244,7 +255,6 @@ def readDataByArea(
             #     json_info["tipoDati"][_tipo_dati][i]["pois"] = []
             pois_query = get_pois_features_query(selection_query, _feature_selection_query)
             pois_info = query_db(pois_query, cursor_factory=None)
-            print(pois_info)
             pois_store = {_band_info['GroupID']:[] for _band_info in layer_info}
             for row in pois_info:
                 pois_store[row[0]].append({
@@ -500,7 +510,6 @@ def readDataByArea(
                 ) as outraster
             FROM out_raster
         """
-        print(out_raster_query)
 
         # Execute Raster Query
         start_raster_query = time.time()
@@ -519,11 +528,26 @@ def readDataByArea(
         json_info['tipoDati'][_tipo_dati] = {
             #"RasterQuery": out_raster_query,
             "ouputGeotiffFile": output_raster_weburl,
+            "outputGeotiffFilepath": output_raster_filepath,
             "timeTakenInfoQuery": time_taken_info_query,
             "timeTakenRasterQuery": time_taken_raster_query,
             "time_units": "Seconds",
             **tipo_dati_info
         }
+
+        # Additional Debug Operations
+        if debug:
+            print("--Producing Debugging Datasets", _tipo_dati)
+            geojson_store_tipo_dati = os.path.join(geojson_store, _tipo_dati)
+            os.mkdir(geojson_store_tipo_dati)
+            for band_idx in range(n_bands):
+                # Produce Geojson
+                geojson_file = f"{band_idx+1}.geojson"
+                geojson_path = os.path.join(geojson_store_tipo_dati, geojson_file)
+                geojson_query = get_data_point_geojson_query(selection_query, feature_selection_query, raster_band_class_codes[band_idx])
+                geojson_out = query_db(geojson_query, cursor_factory=None)[0][0]
+                with open(geojson_path, 'w') as f:
+                    json.dump(geojson_out, f)
 
     #  Flush Json Info to disk
     json_info.update({

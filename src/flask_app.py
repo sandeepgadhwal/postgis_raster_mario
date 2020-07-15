@@ -5,15 +5,12 @@ from markupsafe import escape
 
 app = Flask(__name__)
 
-from postgis_raster_bridge.config import apihost, base_path, working_directory
+from postgis_raster_bridge.config import apihost, base_path, jobs_directory
 from postgis_raster_bridge import readDataByArea
-
-if working_directory is None:
-    working_directory = os.path.abspath('results')
 
 @app.route('/')
 def index():
-    test_url = f"{apihost}{base_path}?latU=16.903489&lonU=41.05911&latD=16.821519&lonD=41.152986&cellSize=100&tipoDati=superficieEdificato"
+    test_url = f"{apihost}/{base_path}?latU=16.903489&lonU=41.05911&latD=16.821519&lonD=41.152986&cellSize=100&tipoDati=superficieEdificato"
     message = f"""
     <html>
         <body>
@@ -32,7 +29,7 @@ def index():
     """
     return message
 
-@app.route(base_path)
+@app.route(f"/{base_path}")
 def api_v1():
     print(request.args)
     kwargs_mapping = {
@@ -69,10 +66,10 @@ def api_v1():
     print(kwargs)
     return jsonify(readDataByArea(**kwargs))
 
-@app.route(base_path+'<jobid>/<filename>')
+@app.route(f"/{base_path}/<jobid>/<filename>")
 def api_v1_results(jobid, filename):
     print(jobid, filename)
-    filepath = os.path.join(working_directory, jobid, filename)
+    filepath = os.path.join(jobs_directory, jobid, filename)
     print(filepath, os.path.exists(filepath))
     return send_file(filepath, as_attachment=True)
 
