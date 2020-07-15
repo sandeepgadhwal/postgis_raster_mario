@@ -5,7 +5,7 @@ import time
 from .database import query_db
 from .database_apis import get_datatype_id, get_srid, get_datatype_info_by_id, get_feature_selection_query, \
     get_class_query, get_stat_query, get_pois_features_query, get_data_point_geojson_query
-from .subroutines import register_job, project_xy
+from .subroutines import register_job, project_xy, float_to_string_safe
 from .config import jobs_directory, base_path, apihost
 
 def readDataByArea(
@@ -74,6 +74,8 @@ def readDataByArea(
     x_max_meter, y_max_meter = project_xy(x_max, y_max, 4326, 3857)
     cell_size_x_dd = (x_max - x_min)*cellSize/(x_max_meter - x_min_meter)
     cell_size_y_dd = (y_max - y_min)*cellSize/(y_max_meter - y_min_meter)
+    _cell_size_x_dd = float_to_string_safe(cell_size_x_dd)
+    _cell_size_y_dd = float_to_string_safe(cell_size_y_dd)
 
     # Dimension of Raster
     n_rows = math.ceil((x_max - x_min) / cell_size_x_dd)
@@ -81,7 +83,7 @@ def readDataByArea(
 
     # Rasterization template query
     raster_template_sql = f""" 
-        SELECT ST_SetBandNoDataValue(ST_MakeEmptyRaster({n_cols}, {n_rows}, {x_min}, {y_max}, {cell_size_x_dd}, {cell_size_y_dd}, {0}, {0}, 4326), {nodata})
+        SELECT ST_SetBandNoDataValue(ST_MakeEmptyRaster({n_cols}, {n_rows}, {x_min}, {y_max}, {_cell_size_x_dd}, {_cell_size_y_dd}, {0}, {0}, 4326), {nodata})
     """
 
     # Based on input selection type create selection query

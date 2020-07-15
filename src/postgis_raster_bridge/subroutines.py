@@ -24,6 +24,9 @@ def center_hw_to_polygon(x, y, height, width):
 
 ## Geometry Functions end ##
 
+def float_to_string_safe(value: float):
+    return str(value).replace(',', '.')
+
 def register_job():
     job_id = create_job_id()
     while True:
