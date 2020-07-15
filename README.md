@@ -40,7 +40,7 @@ Install conda from [here](https://www.anaconda.com/products/individual)
   
 Use the following command to configure environment
 ```shell script
-conda create -n postgisrasterenv -f environment.yaml
+conda env create -n postgisrasterenv -f environment.yaml
 ```
 
 ## Activate Enviornment

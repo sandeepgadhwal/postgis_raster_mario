@@ -22,8 +22,8 @@ def get_datatype_info_by_id(datatype_id):
             dtg."ExportArea",
             wtg."TableID",
             wtg."GroupCode",
-            wtg."GroupName",
-            wt."TableName"
+            TRIM(wtg."GroupName") AS "GroupName",
+            TRIM(wt."TableName") AS "TableName"
         FROM
             public.ws_datatype_table_groups dtg
             LEFT JOIN
@@ -49,7 +49,10 @@ def get_srid(table_name: str, geom_column='wkb_geometry'):
 def get_class_query(classes, class_column):
     class_query = "1=1"
     if classes is not None:
-        classes_string = "', '".join(classes)
+        if type(classes) in [list, tuple]:
+            classes_string = "', '".join(classes)
+        else:
+            classes_string = classes
         class_query = f"""
             {class_column} IN ('{classes_string}')
         """
@@ -74,26 +77,79 @@ def get_table_names(filter_table_names=None, connection=None):
     table_names = [x[0] for x in query_db(query)]
     return table_names
 
-def get_feature_selection_query(feature_table, classes, geom_column, class_column, code_column):
+def get_class_code_query(classes, class_column):
+    class_query = "1=1"
+    if classes is not None:
+        if type(classes) in [list, tuple]:
+            classes_string = ", ".join([str(x) for x in classes])
+            class_query = f"""
+                {class_column} IN ({classes_string})
+            """
+        else:
+            classes_string = str(classes)
+            class_query = f"""
+                {class_column}={classes_string}
+            """
+    return class_query
+
+def get_feature_selection_query(feature_table, class_values, geom_column='wkb_geometry', class_column='fclass', code_column='code', name_column='name'):
     geom_column_where_query = f"ST_Intersects(q.geom, t.{geom_column})"
-    if feature_table in ['osm_buildings']:
-        geom_column_where_query = f"ST_Intersects(q.geom, ST_Centroid(t.{geom_column}))"
+    # if feature_table in ['osm_buildings']:
+    #     geom_column_where_query = f"ST_Intersects(q.geom, ST_Centroid(t.{geom_column}))"
     features_selection_query = f"""       
         SELECT
             t.{geom_column} AS geom,
             t.{class_column} AS class,
-            t.{code_column} AS code
+            t.{code_column} AS code,
+            t.{name_column} AS name
         FROM                 
             public.{feature_table} t,                
             q            
         WHERE                 
             {geom_column_where_query}  
     """
-    class_query = get_class_query(classes, class_column)
+    class_query = get_class_code_query(class_values, code_column)
     features_selection_query = f"""    
         {features_selection_query}
             AND                
             {class_query}
     """
     return features_selection_query
+
+def get_stat_query(selection_query, feature_selection_query, export_area=False):
+    additional = ""
+    if export_area:
+        additional+=",SUM(ST_Area(ST_Transform(f.geom, 3857))) as total_area"
+    query = f"""
+        WITH 
+            {selection_query},
+            f AS ({feature_selection_query})
+        SELECT
+            f.code as code,
+            count(f.*) as total_count
+            {additional}
+        FROM f
+        GROUP BY
+            f.code
+    """
+    return query
+
+def get_pois_features_query(selection_query, feature_selection_query):
+    query = f"""
+        WITH 
+            {selection_query},
+            f AS ({feature_selection_query})
+        SELECT 
+            f.code as code,
+            ST_Y(ST_Centroid(f.geom)) as lat,
+            ST_X(ST_Centroid(f.geom)) as lon,
+            f.name as name
+        FROM 
+            f
+        ORDER BY
+            code,
+            name
+    """
+    return query
+
 ## Database APIs End ##

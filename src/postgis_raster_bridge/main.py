@@ -3,7 +3,7 @@ import json
 import math
 import time
 from .database import query_db
-from .database_apis import get_datatype_id, get_srid, get_datatype_info_by_id, get_feature_selection_query, get_class_query
+from .database_apis import get_datatype_id, get_srid, get_datatype_info_by_id, get_feature_selection_query, get_class_query, get_stat_query, get_pois_features_query
 from .subroutines import register_job, project_xy
 from .config import jobs_directory, base_path
 
@@ -76,7 +76,6 @@ def readDataByArea(
     raster_template_sql = f""" 
         SELECT ST_SetBandNoDataValue(ST_MakeEmptyRaster({n_cols}, {n_rows}, {x_min}, {y_max}, {cell_size_x_dd}, {cell_size_y_dd}, {0}, {0}, 4326), {nodata})
     """
-    print(raster_template_sql)
 
     # Based on input selection type create selection query
     if circle:
@@ -144,8 +143,11 @@ def readDataByArea(
                 tipoDati
             ]
         },
+        "tipoDati": {},
         "outputsToProduce": outputs_to_produce,
         "rasterInfo": {
+            "cell_size_x_meters": cellSize,
+            "cell_size_y_meters": cellSize,
             "cell_size_x_dd": cell_size_x_dd,
             "cell_size_y_dd": cell_size_y_dd,
             "n_rows": n_rows,
@@ -161,167 +163,268 @@ def readDataByArea(
     with open(preprocess_json_path, 'w') as f:
         json.dump(json_info, f)
 
-    for _tipo_dati in outputs_to_produce:
 
+    for _tipo_dati in outputs_to_produce:
         # Basics
-        datatype_id = get_datatype_id(tipoDati)
-        datatype_info = get_datatype_info_by_id(datatype_id)
-        data_table = datatype_info[0]['TableName']
-        classes=[['building']]#[row['GroupName'] for row in datatype_info]
+        datatype_id = get_datatype_id(_tipo_dati)
+        layer_info = [dict(x) for x in get_datatype_info_by_id(datatype_id)]
+        class_mapping = {x['GroupCode']:x['GroupName'] for x in layer_info}
+        class_names = list(class_mapping.values())
+        class_values = list(class_mapping.keys())
+        table_name = layer_info[0]['TableName']
+        export_area = layer_info[0]['ExportArea']
+        tipo_dati_info = {}
+
+        # print(class_mapping)
+
+        #classes=[['building']]#[row['GroupName'] for row in datatype_info]
         output_raster_filepath = os.path.join(job_path, f'{_tipo_dati}.tiff')
         output_raster_weburl = f"{base_path}/{str(job_id)}/{_tipo_dati}.tiff"
 
-        # Make Data Retrieval Query
-        data_ret_query = ""
-
         # Use the Selection query to select features from source table
-        feature_selection_query_store = []
-        for i, dtype in enumerate(datatype_info):
-            _features_selection_query = get_feature_selection_query(
-                feature_table=data_table,
-                classes=classes[i],
-                geom_column='wkb_geometry',
-                class_column='fclass',
-                code_column='code'
-            )
-            features_selection_query = f"""
-                features_{i} AS (
-                    {_features_selection_query}      
-                )
-            """
-            feature_selection_query_store.append(features_selection_query)
-        feature_selection_query = "\n,".join(feature_selection_query_store)
+        # feature_selection_query_store = []
+        # for i, layer_info in enumerate(layer_info):
+        #     _features_selection_query = get_feature_selection_query(
+        #         feature_table=layer_info['TableName'],
+        #         classes=layer_info['GroupCode'],
+        #         geom_column='wkb_geometry',
+        #         class_column='fclass',
+        #         code_column='code'
+        #     )
+        #     features_selection_query = f"""
+        #         features_{i} AS (
+        #             {_features_selection_query}
+        #         )
+        #     """
+        #     feature_selection_query_store.append(features_selection_query)
+        # feature_selection_query = "\n,".join(feature_selection_query_store)
+        # print(feature_selection_query)
+
+
+        _feature_selection_query = get_feature_selection_query(
+            feature_table=table_name,
+            class_values=class_values,
+            geom_column='wkb_geometry',
+            class_column='fclass',
+            code_column='code'
+        )
+        feature_selection_query = f"features AS ({_feature_selection_query})"
+
+        # Stat Query
+        stat_query = get_stat_query(selection_query, _feature_selection_query, export_area=export_area)
+        _layer_stats = query_db(stat_query, cursor_factory=None)
+        _layer_stats = {int(x[0]): x[1:] for x in _layer_stats}
+
+        # FLush Stats to Json Info
+        band_id = 0
+        band_stats = []
+        raster_band_class_codes = []
+        for _band_info in layer_info:
+            class_code = _band_info['GroupID']
+            if class_code in _layer_stats:
+                band_id+=1
+                raster_band_class_codes.append(class_code)
+                band_info = {
+                    "layer_id": band_id,
+                    "class_code": class_code,
+                    "class_name": _band_info['GroupName'],
+                    "table_name": table_name,
+                    "total_features": _layer_stats[class_code][0]
+                }
+                if _band_info['ExportArea']:
+                    band_info['layer_area'] = _layer_stats[class_code][1]
+                band_stats.append(band_info)
+        #
+        tipo_dati_info["layers"] = band_stats
+        n_bands = band_id
+
+        # Pois Query
+        if datatype_id == 400:
+            # for i in range(json_info["tipoDati"][_tipo_dati]):
+            #     json_info["tipoDati"][_tipo_dati][i]["pois"] = []
+            pois_query = get_pois_features_query(selection_query, _feature_selection_query)
+            pois_info = query_db(pois_query, cursor_factory=None)
+            print(pois_info)
+            pois_store = {_band_info['GroupID']:[] for _band_info in layer_info}
+            for row in pois_info:
+                pois_store[row[0]].append({
+                    "lat": row[1],
+                    "lon": row[2],
+                    "name": row[3]
+                })
+            #
+            for i in range (len(tipo_dati_info["layers"])):
+                tipo_dati_info["layers"][i]['pois'] = pois_store[tipo_dati_info["layers"][i]['class_code']]
 
         # Create data points for each bands of each raster
-        band_idx = 0
         data_points_store = []
-        for f_i, feature_table in enumerate(datatype_info):
-            f_classes = classes[f_i]
-            class_query = ""
-            if not f_classes == ['all']:
-                class_query = f"WHERE {get_class_query(f_classes, 't.class')}"
-            f_classes_query = f"""
-                WITH 
-                    {selection_query},
-                    {feature_selection_query_store[f_i]}
-                SELECT 
-                    t.class as class,
-                    MIN(t.code)::text as code,
-                    COUNT(t.class) as num_features
-                FROM 
-                    features_{f_i} t
-                {class_query}
-                GROUP BY
-                    class
-            """
-            f_classes_db = query_db(f_classes_query, cursor_factory=None)
-            class_mapping = {x[0]: x for x in f_classes_db}
-            if f_classes == ['all']:
-                f_classes_store = f_classes_db
-            else:
-                f_classes_store = []
-                default = [None, None, 0]
-                for _f_class in f_classes:
-                    row = [_f_class, class_mapping.get(_f_class, default)[1], class_mapping.get(_f_class, default)[2]]
-                    f_classes_store.append(row)
-            if expand_bands:
-                for f_class_row in f_classes_store:
-                    band_idx += 1
-                    class_name = f_class_row[0]
-                    class_code = f_class_row[1]
-                    num_features = f_class_row[2]
-
-                    # Prepare band info
-                    # band_info = {
-                    #     "band_id": band_idx,
-                    #     "layer_name": rev_op_tables[feature_table],
-                    #     "layer_table": feature_table,
-                    #     "class_code": [class_code],
-                    #     "class_name": [class_name],
-                    #     "features": [num_features]
-                    # }
-                    # raster_info['layers'].append(band_info)
-
-                    # Prepare data point query
-                    class_code_flt = ""
-                    if class_code is not None:
-                        class_code_flt = f"""
-                            AND
-                            f.code={class_code}
-                        """
-                    # data_point_query = f"""
-                    #     data_point_{band_idx} AS (
-                    #         SELECT ST_Collect(ST_Centroid(q.geom)) as geom
-                    #         FROM
-                    #             features_{f_i} f,
-                    #             q_poly q
-                    #         WHERE
-                    #             ST_Intersects(f.geom, q.geom)
-                    #             {class_code_flt}
-                    #     )
-                    # """
-                    data_point_query = f"""
-                        data_point_{band_idx} AS (
-                            WITH d_ras AS (
-                                SELECT  
-                                    ST_Union(
-                                        ST_AsRaster(
-                                            f.geom,
-                                            ({raster_template_sql}),
-                                            '8BUI'::text, 
-                                            {positive}, 
-                                            {negative},
-                                            true
-                                        ),
-                                        'Max'
-                                    ) AS ras
-                                FROM
-                                    features_{f_i} f
-                                WHERE 
-                                    f.code={class_code}
-                            )
-
-                            SELECT 
-                                ST_Collect(ST_Centroid((pp).geom)) as geom
-                            FROM
-                                (
-                                    SELECT 
-                                        ST_PixelAsPoints(d_ras.ras, 1) pp
-                                    FROM d_ras
-                                ) a
-                            WHERE
-                                (pp).val={positive}
-                        )
-                    """
-                    data_points_store.append(data_point_query)
-            else:
-                band_idx += 1
-                # band_info = {
-                #     "band_id": band_idx,
-                #     "layer_name": rev_op_tables[feature_table],
-                #     "layer_table": feature_table,
-                #     "class_code": [x[1] for x in f_classes_store],
-                #     "class_name": [x[0] for x in f_classes_store],
-                #     "features": [x[2] for x in f_classes_store]
-                # }
-                # raster_info['layers'].append(band_info)
-                data_point_query = f"""
-                    data_point_{band_idx} AS (
-                        SELECT ST_Collect(ST_Centroid(q.geom)) as geom
-                        FROM 
-                            features_{f_i} f,
-                            q_poly q
+        for band_idx in range(n_bands):
+            data_point_query = f"""
+                data_point_{band_idx+1} AS (
+                    WITH d_ras AS (
+                        SELECT  
+                            ST_Union(
+                                ST_AsRaster(
+                                    f.geom,
+                                    ({raster_template_sql}),
+                                    '8BUI'::text, 
+                                    {positive}, 
+                                    {negative},
+                                    true
+                                ),
+                                'Max'
+                            ) AS ras
+                        FROM
+                            features f
                         WHERE 
-                            ST_Intersects(q.geom, f.geom)     
+                            f.code={raster_band_class_codes[band_idx]}
                     )
-                """
-                data_points_store.append(data_point_query)
+
+                    SELECT 
+                        ST_Collect(ST_Centroid((pp).geom)) as geom
+                    FROM
+                        (
+                            SELECT 
+                                ST_PixelAsPoints(d_ras.ras, 1) pp
+                            FROM d_ras
+                        ) a
+                    WHERE
+                        (pp).val={positive}
+                )
+            """
+            data_points_store.append(data_point_query)
+        #
         data_points_query = "\n,".join(data_points_store)
 
+        # band_idx = 0
+        # data_points_store = []
+        # for f_i, layer_info in enumerate(datatype_info):
+        #     f_classes = classes[f_i]
+        #     class_query = ""
+        #     if not f_classes == ['all']:
+        #         class_query = f"WHERE {get_class_query(f_classes, 't.class')}"
+        #     f_classes_query = f"""
+        #         WITH
+        #             {selection_query},
+        #             {feature_selection_query_store[f_i]}
+        #         SELECT
+        #             t.class as class,
+        #             MIN(t.code)::text as code,
+        #             COUNT(t.class) as num_features
+        #         FROM
+        #             features_{f_i} t
+        #         {class_query}
+        #         GROUP BY
+        #             class
+        #     """
+        #     f_classes_db = query_db(f_classes_query, cursor_factory=None)
+        #     class_mapping = {x[0]: x for x in f_classes_db}
+        #     if f_classes == ['all']:
+        #         f_classes_store = f_classes_db
+        #     else:
+        #         f_classes_store = []
+        #         default = [None, None, 0]
+        #         for _f_class in f_classes:
+        #             row = [_f_class, class_mapping.get(_f_class, default)[1], class_mapping.get(_f_class, default)[2]]
+        #             f_classes_store.append(row)
+        #     if expand_bands:
+        #         for f_class_row in f_classes_store:
+        #             band_idx += 1
+        #             class_name = f_class_row[0]
+        #             class_code = f_class_row[1]
+        #             num_features = f_class_row[2]
+        #
+        #             # Prepare band info
+        #             # band_info = {
+        #             #     "band_id": band_idx,
+        #             #     "layer_name": rev_op_tables[feature_table],
+        #             #     "layer_table": feature_table,
+        #             #     "class_code": [class_code],
+        #             #     "class_name": [class_name],
+        #             #     "features": [num_features]
+        #             # }
+        #             # raster_info['layers'].append(band_info)
+        #
+        #             # Prepare data point query
+        #             class_code_flt = ""
+        #             if class_code is not None:
+        #                 class_code_flt = f"""
+        #                     AND
+        #                     f.code={class_code}
+        #                 """
+        #             # data_point_query = f"""
+        #             #     data_point_{band_idx} AS (
+        #             #         SELECT ST_Collect(ST_Centroid(q.geom)) as geom
+        #             #         FROM
+        #             #             features_{f_i} f,
+        #             #             q_poly q
+        #             #         WHERE
+        #             #             ST_Intersects(f.geom, q.geom)
+        #             #             {class_code_flt}
+        #             #     )
+        #             # """
+        #             data_point_query = f"""
+        #                 data_point_{band_idx} AS (
+        #                     WITH d_ras AS (
+        #                         SELECT
+        #                             ST_Union(
+        #                                 ST_AsRaster(
+        #                                     f.geom,
+        #                                     ({raster_template_sql}),
+        #                                     '8BUI'::text,
+        #                                     {positive},
+        #                                     {negative},
+        #                                     true
+        #                                 ),
+        #                                 'Max'
+        #                             ) AS ras
+        #                         FROM
+        #                             features_{f_i} f
+        #                         WHERE
+        #                             f.code={class_code}
+        #                     )
+        #
+        #                     SELECT
+        #                         ST_Collect(ST_Centroid((pp).geom)) as geom
+        #                     FROM
+        #                         (
+        #                             SELECT
+        #                                 ST_PixelAsPoints(d_ras.ras, 1) pp
+        #                             FROM d_ras
+        #                         ) a
+        #                     WHERE
+        #                         (pp).val={positive}
+        #                 )
+        #             """
+        #             data_points_store.append(data_point_query)
+        #     else:
+        #         band_idx += 1
+        #         # band_info = {
+        #         #     "band_id": band_idx,
+        #         #     "layer_name": rev_op_tables[feature_table],
+        #         #     "layer_table": feature_table,
+        #         #     "class_code": [x[1] for x in f_classes_store],
+        #         #     "class_name": [x[0] for x in f_classes_store],
+        #         #     "features": [x[2] for x in f_classes_store]
+        #         # }
+        #         # raster_info['layers'].append(band_info)
+        #         data_point_query = f"""
+        #             data_point_{band_idx} AS (
+        #                 SELECT ST_Collect(ST_Centroid(q.geom)) as geom
+        #                 FROM
+        #                     features_{f_i} f,
+        #                     q_poly q
+        #                 WHERE
+        #                     ST_Intersects(q.geom, f.geom)
+        #             )
+        #         """
+        #         data_points_store.append(data_point_query)
+        # data_points_query = "\n,".join(data_points_store)
+
         # Create Blank Resultant Raster
-        datatype_array = ", ".join(band_idx * ["'8BUI'::text"])
-        negative_val_array = band_idx * [negative]
-        nodata_val_array = band_idx * [nodata]
+        datatype_array = ", ".join(n_bands * ["'8BUI'::text"])
+        negative_val_array = n_bands * [negative]
+        nodata_val_array = n_bands * [nodata]
         blank_data_raster_query = f"""
             blank_ras AS (
                 SELECT
@@ -339,8 +442,8 @@ def readDataByArea(
         # fill in the blank raster with data points
         _prameterize_blank_raster_query = 'blank_ras.ras'
         data_points_name_list = []
-        for _b_idx in range(0, band_idx):
-            b_idx = _b_idx + 1
+        for band_idx in range(0, n_bands):
+            b_idx = band_idx + 1
             data_point = f"data_point_{b_idx}"
             _prameterize_blank_raster_query = f"""
                 ST_SetValue(
@@ -397,38 +500,29 @@ def readDataByArea(
                 ) as outraster
             FROM out_raster
         """
+        print(out_raster_query)
 
         # Execute Raster Query
         start_raster_query = time.time()
-        output_raster_content = query_db(out_raster_query)[0]['outraster']
+        output_raster_content = query_db(out_raster_query, cursor_factory=None)[0][0]
         time_taken_raster_query = time.time()-start_raster_query
-
 
         # FLush Raster to Disk
         with open(output_raster_filepath, 'wb') as f:
             f.write(bytes(output_raster_content))
 
-        # Make Layer Info Query
-        layer_info_query = data_ret_query
-
         # Execute layer Info Query
         start_info_query = time.time()
-        layer_info = ""#query_db(layer_info_query)
         time_taken_info_query = time.time()-start_info_query
 
-        # Format Layer Info
-        layers = [layer_info]
-
         # Flush Info to Json
-        json_info[_tipo_dati] = {
-            #"dataRetQuery": data_ret_query,
+        json_info['tipoDati'][_tipo_dati] = {
             #"RasterQuery": out_raster_query,
-            #"layerInfoQuery": layer_info,
             "ouputGeotiffFile": output_raster_weburl,
             "timeTakenInfoQuery": time_taken_info_query,
             "timeTakenRasterQuery": time_taken_raster_query,
             "time_units": "Seconds",
-            "layers": layers
+            **tipo_dati_info
         }
 
     #  Flush Json Info to disk
