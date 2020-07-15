@@ -12,12 +12,14 @@ dependencies:
   - cairo=1.14.12
   - certifi=2020.6.20
   - cfitsio=3.470
+  - click=7.1.2
   - curl=7.67.0
   - dbus=1.13.16
   - decorator=4.4.2
   - defusedxml=0.6.0
   - entrypoints=0.3
   - expat=2.2.9
+  - flask=1.1.2
   - fontconfig=2.13.0
   - freetype=2.10.2
   - freexl=1.0.5
@@ -38,6 +40,7 @@ dependencies:
   - ipython=7.16.1
   - ipython_genutils=0.2.0
   - ipywidgets=7.5.1
+  - itsdangerous=1.1.0
   - jedi=0.17.1
   - jinja2=2.11.2
   - jpeg=9b
@@ -129,6 +132,7 @@ dependencies:
   - traitlets=4.3.3
   - wcwidth=0.2.5
   - webencodings=0.5.1
+  - werkzeug=1.0.1
   - wheel=0.34.2
   - widgetsnbextension=3.5.1
   - xerces-c=3.2.2
