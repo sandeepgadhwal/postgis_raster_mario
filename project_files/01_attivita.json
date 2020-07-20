@@ -1,0 +1,69 @@
+{
+    "parameters": {
+        "latU": 16.903489,
+        "lonU": 16.821519,
+        "latD": 41.152986,
+        "lonD": 41.05911, 
+		"tipoDati": [
+            "attivita"
+        ]
+	}
+    "tipoDati": {
+		"attivita": {
+			"comuni": [
+				{
+					"comune_code": 72006,	        	---> "ist_localita.pro_com" 
+					"comune_name": "Bari",          	---> "ist_comuni.comune"
+					"comune_area": 1234.45,         	---> [selected area]  
+					"comune_population": 1134.00,   	---> [selected area] * sum(ist_localita.popres) / sum(ist_localita.shape_area)
+					"comune_area_total": 445555.45, 	---> sum(ist_localita.popres)
+					"comune_pop_total": 1123433.00,		---> sum(ist_localita.shape_area)
+					"attivita_total": 2,				---> count(ist_ateco3.cod_ateco3)
+					"attivita": [
+						{
+							"ateco3_code": "232",									---> ist_ateco3.cod_ateco3
+							"ateco3_name": "FABBRICAZIONE DI PRODOTTI REFRATTARI",	---> ist_ateco3.des_ateco3
+							"num_unita": 5,											---> ist_attecon.num_unita	
+							"addett": 12,											---> ist_attecon.addetti
+						},
+						{
+							"ateco3_code": "382",
+							"ateco3_name": "TRATTAMENTO E SMALTIMENTO DEI RIFIUTI",
+							"num_unita": 2,
+							"addett": 1,
+						}						
+					]
+				},
+				{
+					"comune_code": 72004,
+					"comune_name": "Altamura",
+					"comune_area": 123.45,
+					"comune_population": 883.00,
+					"comune_area_total": 13456.45,
+					"comune_pop_total": 5678.00,
+					"attivita_total": 2,
+					"attivita": [
+						{
+							"ateco3_code": "232",
+							"ateco3_name": "FABBRICAZIONE DI PRODOTTI REFRATTARI",
+							"num_unita": 5,
+							"addett": 12,
+						},
+						{
+							"ateco3_code": "382",
+							"ateco3_name": "TRATTAMENTO E SMALTIMENTO DEI RIFIUTI",
+							"num_unita": 2,
+							"addett": 1,
+						}						
+					]
+				}
+			]
+		}
+	},
+	"geotiff_file": "filename.tiff"	
+    "messages": [],
+    "time_taken_query": 33.443878173828125,
+    "time_taken_total": 35.98608040809631,
+    "time_units": "Seconds"		
+	}	
+}

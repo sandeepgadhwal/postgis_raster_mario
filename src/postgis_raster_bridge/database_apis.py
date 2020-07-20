@@ -183,4 +183,86 @@ def get_data_point_geojson_query(selection_query, feature_selection_query, raste
     """
     return query
 
+def get_comune_population_query(selection_query):
+    geom_column = 'wkb_geometry'
+    t_srs = get_srid("ist_comuni", geom_column)
+    geom_column_where_query = f"ST_Intersects(qp.geom, ic.{geom_column})"
+    _feature_selection_query = f"""
+        SELECT 
+            ic.pro_com as pro_com,
+            ic.comune as comune,
+            ST_Area(ST_Intersection(ic.{geom_column}, qp.geom)) as area,
+            ST_Area(ic.wkb_geometry) as total_area,
+            ic.wkb_geometry as geom,
+            1 AS code
+        FROM                 
+            public.ist_comuni ic,                
+            qp
+        WHERE                 
+            {geom_column_where_query}
+    """
+    feature_selection_query = f"features AS ({_feature_selection_query})"
+    localita_selection_query = f"""
+        SELECT 
+            il.pro_com as pro_com,
+            il.popres as popres,
+            ST_Area(ST_Intersection(il.{geom_column}, qp.geom)) as area,
+            ST_Area(il.{geom_column}) as total_area
+        FROM                 
+            public.ist_localita il,                
+            qp            
+        WHERE
+            ST_Intersects(qp.geom, il.{geom_column})
+    """
+    selection_query = f"""
+        {selection_query},  
+        qp AS (
+            SELECT 
+                ST_Transform(q.geom, {t_srs}) as geom
+            FROM q
+        )
+    """
+    comune_population_query = f"""
+        WITH {selection_query},
+        {feature_selection_query},
+        il AS ({localita_selection_query})
+        SELECT 
+            ic.pro_com as pro_com,
+            ic.comune as comune,
+            SUM(ic.area) as area_ic,
+            SUM(ic.total_area) AS total_area_ic,
+            SUM(il.area) as area_il,
+            SUM(il.total_area) as total_area_il,
+            SUM(il.popres * il.area / il.total_area) as popres,
+            SUM(il.popres) as popres_total
+        FROM features ic
+        LEFT JOIN 
+            il
+                ON
+                ic.pro_com = il.pro_com
+        GROUP BY
+            ic.pro_com,
+            ic.comune                
+    """
+    return comune_population_query, feature_selection_query, selection_query
+
+def get_attiva_query(comune_codes):
+    attivita_query = f"""
+        SELECT 
+            iate.cod_ateco3 AS ateco3_code,
+            iate.des_ateco3 AS ateco3_name,
+            iatt.num_unita AS num_unita,
+            iatt.addetti AS addett,
+            iatt.pro_com AS pro_com
+        FROM  
+            ist_ateco3 iate
+            LEFT JOIN 
+                ist_attecon iatt
+                    ON
+                    iatt.ateco3 = iate.cod_ateco3
+        WHERE 
+            iatt.pro_com IN ({(", ").join(comune_codes)})
+    """
+    return attivita_query
+
 ## Database APIs End ##
