@@ -326,7 +326,7 @@ def readDataByArea(
                         FROM
                             (
                                 SELECT 
-                                    ST_PixelAsPoints(d_ras.ras, 1) pp
+                                    ST_PixelAsPoints(d_ras.ras, 1, True) pp
                                 FROM d_ras
                             ) a
                         WHERE

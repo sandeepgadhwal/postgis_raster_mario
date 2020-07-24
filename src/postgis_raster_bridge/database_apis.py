@@ -98,7 +98,7 @@ def get_feature_selection_query(feature_table, class_values, geom_column='wkb_ge
     #     geom_column_where_query = f"ST_Intersects(q.geom, ST_Centroid(t.{geom_column}))"
     features_selection_query = f"""       
         SELECT
-            t.{geom_column} AS geom,
+            ST_Intersection(t.{geom_column}, q.geom) AS geom,
             t.{class_column} AS class,
             t.{code_column} AS code,
             t.{name_column} AS name
@@ -188,18 +188,27 @@ def get_comune_population_query(selection_query):
     t_srs = get_srid("ist_comuni", geom_column)
     geom_column_where_query = f"ST_Intersects(qp.geom, ic.{geom_column})"
     _feature_selection_query = f"""
+        WITH orig_features AS (
+            SELECT 
+                ic.pro_com as pro_com,
+                ic.comune as comune,
+                ic.{geom_column} as geom,
+                ST_Intersection(ic.{geom_column}, qp.geom) as clipped_geom
+            FROM                 
+                public.ist_comuni ic,                
+                qp
+            WHERE                 
+                {geom_column_where_query}
+        )   
         SELECT 
-            ic.pro_com as pro_com,
-            ic.comune as comune,
-            ST_Area(ST_Intersection(ic.{geom_column}, qp.geom)) as area,
-            ST_Area(ic.wkb_geometry) as total_area,
-            ST_Transform(ic.wkb_geometry, 4326) as geom,
-            1 AS code
+            of.pro_com,
+            of.comune,
+            1 AS code,
+            ST_Area(of.clipped_geom) as area,
+            ST_Area(of.geom) as total_area,
+            ST_Transform(of.clipped_geom, 4326) as geom
         FROM                 
-            public.ist_comuni ic,                
-            qp
-        WHERE                 
-            {geom_column_where_query}
+            orig_features of
     """
     feature_selection_query = f"features AS ({_feature_selection_query})"
     localita_selection_query = f"""
