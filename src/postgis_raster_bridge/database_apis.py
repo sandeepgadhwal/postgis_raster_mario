@@ -193,7 +193,7 @@ def get_comune_population_query(selection_query):
             ic.comune as comune,
             ST_Area(ST_Intersection(ic.{geom_column}, qp.geom)) as area,
             ST_Area(ic.wkb_geometry) as total_area,
-            ic.wkb_geometry as geom,
+            ST_Transform(ic.wkb_geometry, 4326) as geom,
             1 AS code
         FROM                 
             public.ist_comuni ic,                
@@ -250,9 +250,9 @@ def get_attiva_query(comune_codes):
     attivita_query = f"""
         SELECT 
             iate.cod_ateco3 AS ateco3_code,
-            iate.des_ateco3 AS ateco3_name,
-            iatt.num_unita AS num_unita,
-            iatt.addetti AS addett,
+            max(iate.des_ateco3) AS ateco3_name,
+            sum(iatt.num_unita) AS num_unita,
+            sum(iatt.addetti) AS addett,
             iatt.pro_com AS pro_com
         FROM  
             ist_ateco3 iate
@@ -262,6 +262,10 @@ def get_attiva_query(comune_codes):
                     iatt.ateco3 = iate.cod_ateco3
         WHERE 
             iatt.pro_com IN ({(", ").join(comune_codes)})
+
+        GROUP BY
+            iate.cod_ateco3,
+            iatt.pro_com
     """
     return attivita_query
 

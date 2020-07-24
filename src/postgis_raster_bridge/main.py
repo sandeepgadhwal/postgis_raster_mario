@@ -419,6 +419,7 @@ def readDataByArea(
 
             # Execute Raster Query
             start_raster_query = time.time()
+
             output_raster_content = query_db(out_raster_query, cursor_factory=None)[0][0]
             time_taken_raster_query = time.time()-start_raster_query
 
