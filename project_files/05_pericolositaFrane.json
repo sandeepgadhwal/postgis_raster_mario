@@ -1,0 +1,55 @@
+{
+    "parameters": {
+        "latU": 16.903489,
+        "lonU": 16.821519,
+        "latD": 41.152986,
+        "lonD": 41.05911, 
+		"tipoDati": [
+            "perocolositaFrane"
+        ]
+	}
+    "tipoDati": {
+		"perocolositaFrane": {
+			"layers": [
+				{
+					"layer_id": 1,
+					"layer_name": "Aree di Attenzione AA",
+					"table_name": "isp_frane"
+					"layer_area": 165.12
+				},
+				{
+					"layer_id": 2,
+					"layer_name": "Moderata P1",
+					"table_name": "isp_frane"
+					"layer_area": 165.12
+				},
+				{
+					"layer_id": 3,
+					"layer_name": "Media P2",
+					"table_name": "isp_frane"
+					"layer_area": 165.12
+				},
+				{
+					"layer_id": 4,
+					"layer_name": "Elevata P3",
+					"table_name": "isp_frane"
+					"layer_area": 165.12
+				},
+				{
+					"layer_id": 5,
+					"layer_name": "Molto elevata P4",
+					"table_name": "isp_frane"
+					"layer_area": 165.12
+				}				
+			],	
+			"total_area": 165.12
+		}
+
+	},
+	"geotiff_file": "filename.tiff"	
+    "messages": [],
+    "time_taken_query": 33.443878173828125,
+    "time_taken_total": 35.98608040809631,
+    "time_units": "Seconds"		
+	}	
+}

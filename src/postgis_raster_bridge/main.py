@@ -50,11 +50,15 @@ def readDataByArea(
     job_id, job_path = register_job()
 
     # Infer Outputs to Produce
-    outputs_to_produce = ['attivita', 'superficieEdificato', 'superficieAreeServizio', 'struttureVarie']
+    outputs_to_produce = ['attivita', 'superficieEdificato', 'superficieAreeServizio', 'struttureVarie', 'pericolositaFrane', 'pericolositaIdraulica']
     if tipoDati != 'tutti':
         if not tipoDati in outputs_to_produce:
             raise Exception(f"Invalid value supplied for parameter tipoDati: {tipoDati}, \n Valid values are {','.join(outputs_to_produce)}")
         outputs_to_produce = [tipoDati]
+
+    #
+    if tipoDati == 'struttureVarie':
+        cellSize = 5
 
     # Json Info Files
     preprocess_json_path = os.path.join(job_path, 'parameter_info.json')
@@ -85,6 +89,23 @@ def readDataByArea(
     raster_template_sql = f""" 
         SELECT ST_SetBandNoDataValue(ST_MakeEmptyRaster({n_cols}, {n_rows}, {x_min}, {y_max}, {_cell_size_x_dd}, {_cell_size_y_dd}, {0}, {0}, 4326), {nodata})
     """
+
+    # if 'struttureVarie' in outputs_to_produce:
+    #     cellSize = 5
+    #     cell_size_x_dd_5m = (x_max - x_min) * cellSize / (x_max_meter - x_min_meter)
+    #     cell_size_y_dd_5m = (y_max - y_min) * cellSize / (y_max_meter - y_min_meter)
+    #     _cell_size_x_dd_5m = float_to_string_safe(cell_size_x_dd)
+    #     _cell_size_y_dd_5m = float_to_string_safe(cell_size_y_dd)
+    #
+    #     # Dimension of Raster
+    #     n_rows_5m = math.ceil((x_max - x_min) / cell_size_x_dd_5m)
+    #     n_cols_5m = math.ceil((y_max - y_min) / cell_size_y_dd_5m)
+    #
+    #     # Rasterization template query
+    #     raster_template_sql_5m = f"""
+    #         SELECT ST_SetBandNoDataValue(ST_MakeEmptyRaster({n_cols_5m}, {n_rows_5m}, {x_min}, {y_max}, {_cell_size_x_dd_5m}, {_cell_size_y_dd_5m}, {0}, {0}, 4326), {nodata})
+    #     """
+
 
     # Based on input selection type create selection query
     if circle:
@@ -227,6 +248,87 @@ def readDataByArea(
             # For Rasterization
             raster_band_class_codes = [1]
             n_bands = 1
+
+        elif datatype_id in [420, 430]:
+            # Pericolosita Data
+            geom_column = "wkb_geometry"
+            geom_column_where_query = f"ST_Intersects(qp.geom, t.{geom_column})"
+            projected = False
+            _selection_query = selection_query
+            # if feature_table in ['osm_buildings']:
+            #     geom_column_where_query = f"ST_Intersects(q.geom, ST_Centroid(t.{geom_column}))"
+
+            if datatype_id == 420:
+                feature_tables = ["isp_frane"]
+                name_columns = ["peric_ita"]
+            else:
+                feature_tables = ["isp_idraulica_p1", "isp_idraulica_p2", "isp_idraulica_p3"]
+                name_columns = ["scenariop1", "scenariop2", "scenariop3"]
+
+            layer_info = []
+            total_area = 0
+            layer_id = 0
+            raster_band_class_codes = []
+            feature_selection_query_store = []
+            for feature_table, name_column in zip(feature_tables, name_columns):
+                t_srs = get_srid(feature_table, geom_column)
+                selection_query = f"""
+                    {_selection_query},  
+                    qp AS (
+                        SELECT 
+                            ST_Transform(q.geom, {t_srs}) as geom
+                        FROM q
+                    )
+                """
+                _feature_selection_query = f"""       
+                    SELECT
+                        ST_Intersection(t.{geom_column}, qp.geom) AS geom,
+                        t.{name_column} AS name,
+                        t.{name_column} AS code
+                    FROM                 
+                        public.{feature_table} t,                
+                        qp            
+                    WHERE                 
+                        {geom_column_where_query}  
+                """
+                stat_query = f"""
+                    WITH 
+                        {selection_query},
+                        f AS ({_feature_selection_query})
+                    SELECT
+                        f.name as name,
+                        SUM(ST_Area(f.geom)) as total_area
+                    FROM f
+                    GROUP BY
+                        name
+                """
+                feature_selection_query_store.append(_feature_selection_query)
+                _layer_stats = query_db(stat_query, cursor_factory=None)
+                # _layer_stats = {int(x[0]): x[1:] for x in _layer_stats}
+
+                for row in _layer_stats:
+                    layer_id+=1
+                    total_area+=float(row[1])
+                    layer_info.append({
+                        "layer_id": layer_id,
+                        "layer_name": str(row[0]),
+                        "table_name": feature_table,
+                        "layer_area": float(row[1])
+                    })
+                    class_code = row[0].replace("'", "''")
+                    class_code = f"'{class_code}'"
+                    raster_band_class_codes.append(class_code)
+            tipo_dati_info["layers"] = layer_info
+            tipo_dati_info['total_area'] = total_area
+
+            # For Rasterization
+            n_bands = len(tipo_dati_info["layers"])
+            if len(feature_selection_query_store) > 1:
+                _feature_selection_query = \
+                """
+                UNION
+                """.join(feature_selection_query_store)
+            feature_selection_query = f"features AS ({_feature_selection_query})"
 
         else:
             # OSM Data
