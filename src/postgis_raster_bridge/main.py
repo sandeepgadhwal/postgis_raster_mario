@@ -290,6 +290,8 @@ def readDataByArea(
                         qp            
                     WHERE                 
                         {geom_column_where_query}  
+                        AND 
+                            ST_IsValid(t.{geom_column})='t'
                 """
                 stat_query = f"""
                     WITH 
