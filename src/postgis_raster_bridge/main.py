@@ -127,6 +127,7 @@ def readDataByArea(
             {selection_geom_query}
         )
     """
+    _selection_query = selection_query
     selection_query_rasterize = f"""
         q_ras AS (
             SELECT
@@ -254,7 +255,6 @@ def readDataByArea(
             geom_column = "wkb_geometry"
             geom_column_where_query = f"ST_Intersects(qp.geom, t.{geom_column})"
             projected = False
-            _selection_query = selection_query
             # if feature_table in ['osm_buildings']:
             #     geom_column_where_query = f"ST_Intersects(q.geom, ST_Centroid(t.{geom_column}))"
 
