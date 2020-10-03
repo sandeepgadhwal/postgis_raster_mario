@@ -534,12 +534,12 @@ def readDataByArea(
             with open(output_raster_filepath, 'wb') as f:
                 f.write(bytes(output_raster_content))
         else:
-            output_raster_filepath = os.path.join(job_path, f'{_tipo_dati}_nodata.tiff')
-            output_raster_weburl = f"{apihost}/{base_path}/{str(job_id)}/{_tipo_dati}_nodata.tiff"
+            output_raster_filepath = None#os.path.join(job_path, f'{_tipo_dati}_nodata.tiff')
+            output_raster_weburl = None#f"{apihost}/{base_path}/{str(job_id)}/{_tipo_dati}_nodata.tiff"
             time_taken_raster_query = 0
             # Make NoData Raster
-            with open(output_raster_filepath, 'wb') as f:
-                pass
+            # with open(output_raster_filepath, 'wb') as f:
+            #     pass
 
 
 
