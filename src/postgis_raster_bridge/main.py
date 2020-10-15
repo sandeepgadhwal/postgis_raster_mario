@@ -57,8 +57,8 @@ def readDataByArea(
         outputs_to_produce = [tipoDati]
 
     #
-    if tipoDati == 'struttureVarie':
-        cellSize = 5
+    # if tipoDati == 'struttureVarie':
+    #     cellSize = 5
 
     # Json Info Files
     preprocess_json_path = os.path.join(job_path, 'parameter_info.json')
@@ -70,14 +70,14 @@ def readDataByArea(
         pass
 
     # Prepare template raster parameters
-    x_min = latD
-    y_min = lonU
-    x_max = latU
-    y_max = lonD
-    x_min_meter, y_min_meter = project_xy(x_min, y_min, 4326, 3857)
-    x_max_meter, y_max_meter = project_xy(x_max, y_max, 4326, 3857)
-    cell_size_x_dd = (x_max - x_min)*cellSize/(x_max_meter - x_min_meter)
-    cell_size_y_dd = (y_max - y_min)*cellSize/(y_max_meter - y_min_meter)
+    x_min = lonU
+    y_min = latD
+    x_max = lonD
+    y_max = latU
+    x_min_meter, y_max_meter = project_xy(x_min, y_max, 4326, 3857)
+    x_max_meter, y_min_meter = project_xy(x_max, y_min, 4326, 3857)
+    cell_size_x_dd = abs((x_max - x_min)*cellSize/(x_max_meter - x_min_meter))
+    cell_size_y_dd = abs((y_max - y_min)*cellSize/(y_max_meter - y_min_meter))
     _cell_size_x_dd = float_to_string_safe(cell_size_x_dd)
     _cell_size_y_dd = float_to_string_safe(cell_size_y_dd)
 
@@ -211,7 +211,6 @@ def readDataByArea(
             from .database_apis import get_attiva_query, get_comune_population_query
             comune_population_query, feature_selection_query, selection_query = get_comune_population_query(selection_query)
             _layer_stats = query_db(comune_population_query, cursor_factory=None)
-            #print(_layer_stats)
             comune_codes = [int(x[0]) for x in _layer_stats]
             attivita_stats_mapping = {x:[] for x in comune_codes}
             comune_codes = [str(x) for x in comune_codes]
@@ -244,7 +243,7 @@ def readDataByArea(
                 }
                 comuni_stats_store.append(comuni_stats)
             tipo_dati_info["comuni"] = comuni_stats_store
-            #raise None
+            # raise None
 
             # For Rasterization
             raster_band_class_codes = [1]
@@ -524,6 +523,7 @@ def readDataByArea(
             # Execute Raster Query
             start_raster_query = time.time()
 
+            print(out_raster_query)
             output_raster_content = query_db(out_raster_query, cursor_factory=None)[0][0]
             time_taken_raster_query = time.time()-start_raster_query
 
