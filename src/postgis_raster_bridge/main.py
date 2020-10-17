@@ -80,6 +80,7 @@ def readDataByArea(
     cell_size_y_dd = abs((y_max - y_min)*cellSize/(y_max_meter - y_min_meter))
     _cell_size_x_dd = float_to_string_safe(cell_size_x_dd)
     _cell_size_y_dd = float_to_string_safe(cell_size_y_dd)
+    # print(cell_size_x_dd, cell_size_y_dd, _cell_size_x_dd, _cell_size_y_dd)
 
     # Dimension of Raster
     n_rows = math.ceil((x_max - x_min) / cell_size_x_dd)
@@ -87,7 +88,7 @@ def readDataByArea(
 
     # Rasterization template query
     raster_template_sql = f""" 
-        SELECT ST_SetBandNoDataValue(ST_MakeEmptyRaster({n_cols}, {n_rows}, {x_min}, {y_max}, {_cell_size_x_dd}, {_cell_size_y_dd}, {0}, {0}, 4326), {nodata})
+        SELECT ST_SetBandNoDataValue(ST_MakeEmptyRaster({n_cols}, {n_rows}, {x_min}, {y_max}, {_cell_size_x_dd}, -{_cell_size_y_dd}, {0}, {0}, 4326), {nodata})
     """
 
     # if 'struttureVarie' in outputs_to_produce:
@@ -399,43 +400,78 @@ def readDataByArea(
         # Stop Info Query Timer
         time_taken_info_query = time.time()-start_info_query
 
+        union_mode = "'MAX'"
+        # if datatype_id == 400:
+        #     union_mode = "'SUM'"
         if n_bands > 0:
             # Create data points for each bands of each raster
             data_points_store = []
             for band_idx in range(n_bands):
-                data_point_query = f"""
-                    data_point_{band_idx+1} AS (
-                        WITH d_ras AS (
-                            SELECT  
-                                ST_Union(
-                                    ST_AsRaster(
-                                        f.geom,
-                                        ({raster_template_sql}),
-                                        '16BUI'::text, 
-                                        {positive}, 
-                                        {negative},
-                                        true
-                                    ),
-                                    'Max'
-                                ) AS ras
+                if datatype_id == 400:
+                    data_point_query = f"""
+                        data_point_{band_idx+1} AS (
+                            SELECT
+                                ST_Collect(f.geom) AS geom
                             FROM
                                 features f
-                            WHERE 
+                            WHERE
                                 f.code={raster_band_class_codes[band_idx]}
                         )
-    
-                        SELECT 
-                            ST_Collect(ST_Centroid((pp).geom)) as geom
-                        FROM
-                            (
-                                SELECT 
-                                    ST_PixelAsPoints(d_ras.ras, 1, True) pp
-                                FROM d_ras
-                            ) a
-                        WHERE
-                            (pp).val={positive}
-                    )
-                """
+                    """
+                    # data_point_query = f"""
+                    #     data_point_{band_idx+1} AS (
+                    #         SELECT
+                    #             COUNT(f.*) as count,
+                    #             X,
+                    #             Y
+                    #         FROM (
+                    #             SELECT
+                    #                 FLOOR((ST_X(f.geom) - 16.82447) / 0.0003074753466752961)::integer+1 AS X,
+                    #                 FLOOR((41.145577 - ST_Y(f.geom)) / 0.00015696839984572422)::integer+1 AS Y
+                    #             FROM
+                    #                 features f
+                    #             WHERE
+                    #                 f.code={raster_band_class_codes[band_idx]}
+                    #         ) f
+                    #         GROUP BY
+                    #             f.X, f.Y
+                    #         ORDER BY count DESC
+                    #     )
+                    # """
+                else:
+                    data_point_query = f"""
+                        data_point_{band_idx+1} AS (
+                            WITH d_ras AS (
+                                SELECT  
+                                    ST_Union(
+                                        ST_AsRaster(
+                                            f.geom,
+                                            ({raster_template_sql}),
+                                            '16BUI'::text, 
+                                            {positive}, 
+                                            {negative},
+                                            true
+                                        ),
+                                        {union_mode}
+                                    ) AS ras
+                                FROM
+                                    features f
+                                WHERE 
+                                    f.code={raster_band_class_codes[band_idx]}
+                            )
+        
+                            SELECT 
+                                ST_Collect(ST_Centroid((pp).geom)) as geom
+                            FROM
+                                (
+                                    SELECT 
+                                        ST_PixelAsPoints(d_ras.ras, 1, True) pp
+                                    FROM d_ras
+                                ) a
+                            WHERE
+                                (pp).val!={negative}
+                        )
+                    """
                 data_points_store.append(data_point_query)
             #
             data_points_query = "\n,".join(data_points_store)
@@ -445,18 +481,36 @@ def readDataByArea(
             negative_val_array = n_bands * [negative]
             nodata_val_array = n_bands * [nodata]
             blank_data_raster_query = f"""
+                blank_ras1 AS (
+                    SELECT
+						p.ras AS ras
+					FROM (
+						{raster_template_sql} AS ras
+					) p
+                ),
                 blank_ras AS (
                     SELECT
-                            ST_AsRaster(
-                                q.geom,
-                                ({raster_template_sql}),
-                                ARRAY[{datatype_array}], 
-                                ARRAY{negative_val_array}, 
-                                ARRAY{nodata_val_array}
-                            ) AS ras
-                    FROM q
+                        ST_AsRaster(
+                            q.geom,
+                            r.ras,
+                            ARRAY[{datatype_array}],
+                            ARRAY{negative_val_array},
+                            ARRAY{nodata_val_array}
+                        ) AS ras
+                    FROM
+                        q,
+                        blank_ras1 r
                 )
             """
+            # blank_data_raster_query = f"""
+            #     blank_ras AS (
+            #         SELECT
+            # 			p.ras AS ras
+            # 		FROM (
+            # 			{raster_template_sql} AS ras
+            # 		) p
+            #     )
+            # """
 
             # fill in the blank raster with data points
             _prameterize_blank_raster_query = 'blank_ras.ras'
@@ -464,14 +518,34 @@ def readDataByArea(
             for band_idx in range(0, n_bands):
                 b_idx = band_idx + 1
                 data_point = f"data_point_{b_idx}"
-                _prameterize_blank_raster_query = f"""
-                    ST_SetValue(
-                        {_prameterize_blank_raster_query},
-                        {b_idx},
-                        {data_point}.geom,
-                        {positive}
-                    )
-                """
+                pixel_value = positive
+                if datatype_id == 400 and 1==2:
+                    _prameterize_blank_raster_query = f"""
+                        ST_SetValue(
+                            {_prameterize_blank_raster_query},
+                            {b_idx},
+                            {data_point}.X,
+                            {data_point}.Y,
+                            {data_point}.count
+                        )
+                    """
+                    # _prameterize_blank_raster_query = f"""
+                    #     ST_SetValue(
+                    #         ST_AddBand({_prameterize_blank_raster_query}, '16BUI'::text, {negative}, {nodata}),
+                    #         {b_idx},
+                    #         {data_point}.geom,
+                    #         {pixel_value}
+                    #     )
+                    # """
+                else:
+                    _prameterize_blank_raster_query = f"""
+                        ST_SetValue(
+                            {_prameterize_blank_raster_query},
+                            {b_idx},
+                            {data_point}.geom,
+                            {pixel_value}
+                        )
+                    """
                 data_points_name_list.append(data_point)
             prameterize_blank_raster_query = f"""
                 parmaterized_ras AS (
@@ -481,11 +555,17 @@ def readDataByArea(
             """
 
             # Reproject Raster if Required
+            # reproject_raster_query = """
+            #     ST_Union(
+            #         p.ras,
+            #         'Max'
+            #     )
+            # """
             reproject_raster_query = """
                 ST_Union(
                     p.ras,
                     'Max'
-                ) 
+                )
             """
             if not out_srid == 4326:
                 reproject_raster_query = f"""
@@ -525,6 +605,7 @@ def readDataByArea(
 
             # print(out_raster_query)
             output_raster_content = query_db(out_raster_query, cursor_factory=None)[0][0]
+            # print('output_raster_content', output_raster_content)
             time_taken_raster_query = time.time()-start_raster_query
 
             output_raster_filepath = os.path.join(job_path, f'{_tipo_dati}.tiff')
