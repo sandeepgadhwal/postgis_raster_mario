@@ -135,7 +135,7 @@ def readDataByArea(
                     ST_AsRaster(
                         q.geom,
                         ({raster_template_sql}),
-                        '8BUI'::text, 
+                        '16BUI'::text, 
                         {negative}, 
                         {nodata}
                     ),
@@ -411,7 +411,7 @@ def readDataByArea(
                                     ST_AsRaster(
                                         f.geom,
                                         ({raster_template_sql}),
-                                        '8BUI'::text, 
+                                        '16BUI'::text, 
                                         {positive}, 
                                         {negative},
                                         true
@@ -441,7 +441,7 @@ def readDataByArea(
             data_points_query = "\n,".join(data_points_store)
 
             # Create Blank Resultant Raster
-            datatype_array = ", ".join(n_bands * ["'8BUI'::text"])
+            datatype_array = ", ".join(n_bands * ["'16BUI'::text"])
             negative_val_array = n_bands * [negative]
             nodata_val_array = n_bands * [nodata]
             blank_data_raster_query = f"""
@@ -523,7 +523,7 @@ def readDataByArea(
             # Execute Raster Query
             start_raster_query = time.time()
 
-            print(out_raster_query)
+            # print(out_raster_query)
             output_raster_content = query_db(out_raster_query, cursor_factory=None)[0][0]
             time_taken_raster_query = time.time()-start_raster_query
 
