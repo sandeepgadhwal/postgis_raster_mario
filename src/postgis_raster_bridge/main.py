@@ -229,8 +229,10 @@ def readDataByArea(
                 attivita_stats_mapping[comune_code].append(_row)
 
             comuni_stats_store = []
+            commune_codes = []
             for row in _layer_stats:
                 comune_code = int(row[0])
+                commune_codes.append(comune_code)
                 comuni_stats = {
                     "comune_code": comune_code,
                     "comune_name": row[1].strip(),
@@ -247,8 +249,10 @@ def readDataByArea(
             # raise None
 
             # For Rasterization
-            raster_band_class_codes = [1]
-            n_bands = 1
+            # raster_band_class_codes = [1]
+            # n_bands = 1
+            raster_band_class_codes = commune_codes
+            n_bands = len(commune_codes)
 
         elif datatype_id in [420, 430]:
             # Pericolosita Data

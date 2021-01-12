@@ -251,9 +251,25 @@ def get_comune_population_query(selection_query):
                 ic.pro_com = il.pro_com
         GROUP BY
             ic.pro_com,
-            ic.comune                
+            ic.comune
+        ORDER BY
+            ic.pro_com                
     """
-    return comune_population_query, feature_selection_query, selection_query
+    feature_selection_query1 = f"""
+    features AS (
+        SELECT 
+            f.pro_com AS code,
+            ST_Union(f.geom) as geom
+        FROM 
+            ({_feature_selection_query}) f
+        GROUP BY
+            f.pro_com
+        ORDER BY
+            f.pro_com
+        )
+    """
+    # return comune_population_query, feature_selection_query, selection_query
+    return comune_population_query, feature_selection_query1, selection_query
 
 def get_attiva_query(comune_codes):
     attivita_query = f"""
