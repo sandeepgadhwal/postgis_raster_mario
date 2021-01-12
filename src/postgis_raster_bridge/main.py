@@ -626,7 +626,7 @@ def readDataByArea(
 
         # Flush Info to Json
         json_info['tipoDati'][_tipo_dati] = {
-            "ouputGeotiffFile": output_raster_weburl,
+            "outputGeotiffFile": output_raster_weburl,
             "outputGeotiffFilepath": output_raster_filepath,
             "timeTakenInfoQuery": time_taken_info_query,
             "timeTakenRasterQuery": time_taken_raster_query,
